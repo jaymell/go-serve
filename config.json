@@ -1,4 +1,0 @@
-{
-	"DataURL": "mongo://localhost:27017/top_sites",
-	"ListenAddress": "0.0.0.0:8080"
-}

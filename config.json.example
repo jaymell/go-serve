@@ -1,0 +1,5 @@
+{
+	"DataURL": "localhost",
+	"CollectionName": "my_mongo_collection",
+	"ListenAddress": "0.0.0.0:8080"
+}
