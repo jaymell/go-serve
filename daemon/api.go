@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"net/http"
+	"fmt"
 )
 
 var api = []*Command{
@@ -10,7 +11,7 @@ var api = []*Command{
 
 var (
 	jsonCmd = &Command{
-		Path: "/json",
+		Path: "/",
 		GET: getJson,
 	}
 )
@@ -18,6 +19,7 @@ var (
 func getJson(c *Command, r *http.Request) Response {
 	data, err := c.d.GetData()
 	if err != nil {
+		fmt.Println("error retrieving data: ", err)
 		return &resp{
 			Status: http.StatusInternalServerError,
 			Result: nil,

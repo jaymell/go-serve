@@ -2,19 +2,19 @@ package daemon
 
 import (
 	"fmt"
+	"encoding/json"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
-	//"time"
+	"time"
 
 	"github.com/gorilla/mux"
+	"gopkg.in/mgo.v2"
 )
 
-// this may differ across applications, obviously
-type Data struct {
-	XForwardedFor string `bson: "x-forwarded-for" json: "x-forwarded-for"`
-}
+// leaving the json itself completely untyped:
+type Data interface{}
 
 type Response interface {
 	ServeHTTP(w http.ResponseWriter, r *http.Request)
@@ -38,7 +38,7 @@ type Command struct {
 }
 
 type DaemonConfig struct {
-	DataURL url.URL `json: "DataURL"`
+	DataURL string `json: "DataURL"`
 	ListenAddress string `json: "ListenAddress"`
 	CollectionName string `json: "CollectionName"`
 }
@@ -65,10 +65,15 @@ func (c *Command) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if rspf != nil {
-		rsp = rspf(c, r, user)
-	}
-
-	rsp.ServeHTTP(w, r)  
+		rsp := rspf(c, r)
+		rsp.ServeHTTP(w, r)  
+	} else {
+		var badResp = &resp{
+			Status: http.StatusMethodNotAllowed,
+			Result: nil,
+		}
+		badResp.ServeHTTP(w, r)
+	}	
 }
 
 func (r *resp) MarshalJSON() ([]byte, error) {
@@ -81,20 +86,25 @@ func (r *resp) MarshalJSON() ([]byte, error) {
 // called by Command.ServeHTTP -- the response header/body actually gets written:
 func (r *resp) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
 	bs, err := r.MarshalJSON()
+	if err != nil {
+		r.Status = http.StatusInternalServerError
+		bs = nil
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(r.Status)
 	w.Write(bs)
 }
 
 func (d *Daemon) loadConfig() error {
+	// FIXME: be more flexible here
 	f, err := os.Open("config.json")
 	if err != nil {
 		return fmt.Errorf("unable to open config file: ", err)
 	}
-	decoder := json.NewDecoder(file)
+	decoder := json.NewDecoder(f)
 	config := DaemonConfig{}
 
-	err := decoder.Decode(&config)
+	err = decoder.Decode(&config)
 	if err != nil {
 		return fmt.Errorf("unable to decode json: ", err)
 	}
@@ -123,7 +133,7 @@ func (d *Daemon) Init() error {
 }
 
 func (d *Daemon) addRoutes() {
-	d.Router = mux.NewRouter()
+	d.router = mux.NewRouter()
 
 	for _, c := range api {
 		c.d = d
@@ -138,8 +148,12 @@ func (d *Daemon) Start() {
 }
 
 func (d *Daemon) GetData() (interface{}, error) {
-	switch d.Config.DataURL.scheme {
-	case "mongo":
+	URL, err := url.Parse(d.Config.DataURL)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse url from config: ", err)
+	}
+	switch URL.Scheme {
+	case "mongodb":
 		return getMongoData(d.Config.DataURL, d.Config.CollectionName)
 	case "http":
 		return nil, fmt.Errorf("Not implemented yet")
@@ -148,16 +162,19 @@ func (d *Daemon) GetData() (interface{}, error) {
 	}	
 }
 
-func getMongoData(url URL, col string) (interface{}, error) {
-	dialInfo, err := mgo.ParseURL(url)
+func getMongoData(URL string, col string) (interface{}, error) {
+	dialInfo, err := mgo.ParseURL(URL)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse db url: ", err)
 	}
-	session, err := mgo.DialWithInfo(&dialInfo)
+
+	dialInfo.Timeout = time.Duration(5) * time.Second
+	session, err := mgo.DialWithInfo(dialInfo)
+
 	if err != nil {
 		return nil, fmt.Errorf("unable to connect to db: ", err)
 	}
-	c := session.DB(dialinfo.Database).C(col)
+	c := session.DB(dialInfo.Database).C(col)
 	results := []Data{}
 	c.Find(nil).All(&results)
 	// FIXME -- don't always return nil for err, probably:
@@ -165,7 +182,7 @@ func getMongoData(url URL, col string) (interface{}, error) {
 }
 
 func SyncResponse(result interface{}) Response {
-	if err, ok := result.(error); ok {
+	if _, ok := result.(error); ok {
 		return &resp{
 			Status: http.StatusInternalServerError,
 			Result: nil,
