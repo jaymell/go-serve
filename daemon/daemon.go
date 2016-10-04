@@ -9,7 +9,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/gorilla/mux"
 	"gopkg.in/mgo.v2"
 )
 
@@ -45,7 +44,6 @@ type DaemonConfig struct {
 
 type Daemon struct {
 	Listener net.Listener
-	router   *mux.Router
 	Config   *DaemonConfig
 }
 
@@ -137,14 +135,17 @@ func (d *Daemon) addRoutes() {
 
 	for _, c := range api {
 		c.d = d
-		d.router.Handle(c.Path, c).Name(c.Path)
+		http.Handle(c.Path, c)
 	}
 
+	// everything else assumed to be static content
+	fs := http.FileServer(http.Dir("static"))
+	http.Handle("/", fs)
 }
 
 // start the daemon
 func (d *Daemon) Start() {
-	http.Serve(d.Listener, d.router)
+	http.Serve(d.Listener, nil)
 }
 
 func (d *Daemon) GetData() (interface{}, error) {
