@@ -1,8 +1,8 @@
 package daemon
 
 import (
-	"fmt"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
@@ -23,12 +23,12 @@ type Response interface {
 type ResponseFunc func(*Command, *http.Request) Response
 
 type resp struct {
-	Status int `json: "Status"`
+	Status int         `json: "Status"`
 	Result interface{} `json: "Result"`
 }
 
 type Command struct {
-	Path string
+	Path   string
 	GET    ResponseFunc
 	PUT    ResponseFunc
 	POST   ResponseFunc
@@ -38,20 +38,20 @@ type Command struct {
 }
 
 type DaemonConfig struct {
-	DataURL string `json: "DataURL"`
-	ListenAddress string `json: "ListenAddress"`
+	DataURL        string `json: "DataURL"`
+	ListenAddress  string `json: "ListenAddress"`
 	CollectionName string `json: "CollectionName"`
 }
 
 type Daemon struct {
 	Listener net.Listener
-	router  *mux.Router
-	Config	*DaemonConfig
+	router   *mux.Router
+	Config   *DaemonConfig
 }
 
 // user auth can be validated here, if implemented -- see snapd code:
 func (c *Command) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-  	var rspf ResponseFunc
+	var rspf ResponseFunc
 
 	switch r.Method {
 	case "GET":
@@ -66,21 +66,21 @@ func (c *Command) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if rspf != nil {
 		rsp := rspf(c, r)
-		rsp.ServeHTTP(w, r)  
+		rsp.ServeHTTP(w, r)
 	} else {
 		var badResp = &resp{
 			Status: http.StatusMethodNotAllowed,
 			Result: nil,
 		}
 		badResp.ServeHTTP(w, r)
-	}	
+	}
 }
 
 func (r *resp) MarshalJSON() ([]byte, error) {
 	return json.Marshal(resp{
-			Status: r.Status,
-			Result: r.Result,
-		})
+		Status: r.Status,
+		Result: r.Result,
+	})
 }
 
 // called by Command.ServeHTTP -- the response header/body actually gets written:
@@ -122,11 +122,11 @@ func (d *Daemon) Init() error {
 	}
 
 	listener, err := net.Listen("tcp", d.Config.ListenAddress)
-    if err != nil {
+	if err != nil {
 		return fmt.Errorf("failed to initialize listener")
 	}
 
-	d.Listener = listener;
+	d.Listener = listener
 	d.addRoutes()
 
 	return nil
@@ -159,7 +159,7 @@ func (d *Daemon) GetData() (interface{}, error) {
 		return nil, fmt.Errorf("Not implemented yet")
 	default:
 		return nil, fmt.Errorf("Unrecognized scheme")
-	}	
+	}
 }
 
 func getMongoData(URL string, col string) (interface{}, error) {
@@ -178,7 +178,7 @@ func getMongoData(URL string, col string) (interface{}, error) {
 	results := []Data{}
 	c.Find(nil).All(&results)
 	// FIXME -- don't always return nil for err, probably:
-	return results, nil	
+	return results, nil
 }
 
 func SyncResponse(result interface{}) Response {
@@ -191,5 +191,5 @@ func SyncResponse(result interface{}) Response {
 	return &resp{
 		Status: http.StatusOK,
 		Result: result,
-	}	
+	}
 }

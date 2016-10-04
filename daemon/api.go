@@ -1,8 +1,8 @@
 package daemon
 
 import (
-	"net/http"
 	"fmt"
+	"net/http"
 )
 
 var api = []*Command{
@@ -12,7 +12,7 @@ var api = []*Command{
 var (
 	jsonCmd = &Command{
 		Path: "/",
-		GET: getJson,
+		GET:  getJson,
 	}
 )
 
@@ -28,4 +28,3 @@ func getJson(c *Command, r *http.Request) Response {
 
 	return SyncResponse(data)
 }
-

@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"github.com/jaymell/go-serve/daemon"
+	"os"
 )
 
 func run() error {
@@ -19,7 +19,7 @@ func run() error {
 func main() {
 	err := run()
 	if err != nil {
-	 	fmt.Println("failed: ", err)
-	 	os.Exit(1)
+		fmt.Println("failed: ", err)
+		os.Exit(1)
 	}
 }
