@@ -11,7 +11,7 @@ var api = []*Command{
 
 var (
 	jsonCmd = &Command{
-		Path: "/",
+		Path: "/json",
 		GET:  getJson,
 	}
 )

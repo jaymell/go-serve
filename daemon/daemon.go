@@ -131,7 +131,6 @@ func (d *Daemon) Init() error {
 }
 
 func (d *Daemon) addRoutes() {
-	d.router = mux.NewRouter()
 
 	for _, c := range api {
 		c.d = d
