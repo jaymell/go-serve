@@ -5,11 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
-	"time"
-
-	"gopkg.in/mgo.v2"
 )
 
 // leaving the json itself completely untyped:

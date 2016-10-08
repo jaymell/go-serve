@@ -3,6 +3,11 @@ package daemon
 import (
 	"fmt"
 	"net/http"
+	"net/url"
+    "time"
+
+    "gopkg.in/mgo.v2"
+
 )
 
 var api = []*Command{
@@ -17,7 +22,7 @@ var (
 )
 
 func getJson(c *Command, r *http.Request) Response {
-	data, err := c.d.GetData()
+	data, err := getData(c.d)
 	if err != nil {
 		fmt.Println("error retrieving data: ", err)
 		return &resp{
