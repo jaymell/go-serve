@@ -1,0 +1,5 @@
+{
+    "DataURL": "mongodb://localhost/logger",
+    "CollectionName": "logs"
+}
+

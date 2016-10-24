@@ -8,16 +8,13 @@ import (
 	"os"
 )
 
-// leaving the json itself completely untyped:
-type Data interface{}
-
 type Response interface {
 	ServeHTTP(w http.ResponseWriter, r *http.Request)
 }
 
 type ResponseFunc func(*Command, *http.Request) Response
 
-type resp struct {
+type Resp struct {
 	Status int         `json: "Status"`
 	Result interface{} `json: "Result"`
 }
@@ -29,18 +26,21 @@ type Command struct {
 	POST   ResponseFunc
 	DELETE ResponseFunc
 
-	d *Daemon
+	API API
 }
 
 type DaemonConfig struct {
-	DataURL        string `json: "DataURL"`
 	ListenAddress  string `json: "ListenAddress"`
-	CollectionName string `json: "CollectionName"`
 }
 
 type Daemon struct {
 	Listener net.Listener
 	Config   *DaemonConfig
+	api	API
+}
+
+type API interface {
+	Routes() []*Command
 }
 
 // user auth can be validated here, if implemented -- see snapd code:
@@ -62,7 +62,7 @@ func (c *Command) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		rsp := rspf(c, r)
 		rsp.ServeHTTP(w, r)
 	} else {
-		var badResp = &resp{
+		var badResp = &Resp{
 			Status: http.StatusMethodNotAllowed,
 			Result: nil,
 		}
@@ -70,15 +70,15 @@ func (c *Command) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (r *resp) MarshalJSON() ([]byte, error) {
-	return json.Marshal(resp{
+func (r *Resp) MarshalJSON() ([]byte, error) {
+	return json.Marshal(Resp{
 		Status: r.Status,
 		Result: r.Result,
 	})
 }
 
-// called by Command.ServeHTTP -- the response header/body actually gets written:
-func (r *resp) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
+// called by Command.ServeHTTP -- the Response header/body actually gets written:
+func (r *Resp) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
 	bs, err := r.MarshalJSON()
 	if err != nil {
 		r.Status = http.StatusInternalServerError
@@ -89,16 +89,11 @@ func (r *resp) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
 	w.Write(bs)
 }
 
-func (d *Daemon) loadConfig() error {
-	// FIXME: be more flexible here
-	f, err := os.Open("config.json")
-	if err != nil {
-		return fmt.Errorf("unable to open config file: ", err)
-	}
+func (d *Daemon) loadConfig(f *os.File) error {
 	decoder := json.NewDecoder(f)
 	config := DaemonConfig{}
 
-	err = decoder.Decode(&config)
+	err := decoder.Decode(&config)
 	if err != nil {
 		return fmt.Errorf("unable to decode json: ", err)
 	}
@@ -109,8 +104,8 @@ func (d *Daemon) loadConfig() error {
 }
 
 // register listener, initialize routes
-func (d *Daemon) Init() error {
-	err := d.loadConfig()
+func (d *Daemon) Init(api API, f *os.File) error {
+	err := d.loadConfig(f)
 	if err != nil {
 		return err
 	}
@@ -121,15 +116,15 @@ func (d *Daemon) Init() error {
 	}
 
 	d.Listener = listener
-	d.addRoutes()
+	d.addRoutes(api)
 
 	return nil
 }
 
-func (d *Daemon) addRoutes() {
+func (d *Daemon) addRoutes(api API) {
 
-	for _, c := range api {
-		c.d = d
+	routes := api.Routes()
+	for _, c := range routes {
 		http.Handle(c.Path, c)
 	}
 
@@ -145,12 +140,12 @@ func (d *Daemon) Start() {
 
 func SyncResponse(result interface{}) Response {
 	if _, ok := result.(error); ok {
-		return &resp{
+		return &Resp{
 			Status: http.StatusInternalServerError,
 			Result: nil,
 		}
 	}
-	return &resp{
+	return &Resp{
 		Status: http.StatusOK,
 		Result: result,
 	}

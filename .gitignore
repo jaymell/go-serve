@@ -1,3 +1,4 @@
-config.json
+config.api.json
+config.daemon.json
 /static/
 go-serve
