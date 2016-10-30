@@ -15,8 +15,8 @@ type Response interface {
 type ResponseFunc func(*Command, *http.Request) Response
 
 type Resp struct {
-	Status int         `json: "Status"`
-	Result interface{} `json: "Result"`
+	Status int         `json:"Status"`
+	Result interface{} `json:"Result"`
 }
 
 type Command struct {
@@ -30,7 +30,7 @@ type Command struct {
 }
 
 type DaemonConfig struct {
-	ListenAddress  string `json: "ListenAddress"`
+	ListenAddress  string `json:"ListenAddress"`
 }
 
 type Daemon struct {
